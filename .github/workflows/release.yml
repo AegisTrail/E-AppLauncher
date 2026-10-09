@@ -108,7 +108,9 @@ jobs:
           path: release/
 
       - name: List assets
-        run: ls -la release/ && sha256sum -c release/*.sha256
+        run: |
+          ls -la release/
+          (cd release && sha256sum -c *.sha256)
 
       - name: Publish GitHub Release
         uses: softprops/action-gh-release@v2
