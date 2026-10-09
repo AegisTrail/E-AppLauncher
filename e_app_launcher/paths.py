@@ -31,4 +31,4 @@ INDEX_PATH = DATA_DIR / "index.json"
 DESKTOP_DIR = _xdg_data_home() / "applications"
 ICON_DIR = _xdg_data_home() / "icons" / "hicolor" / "256x256" / "apps"
 
-APP_VERSION = "0.2.0"
+APP_VERSION = "1.0.0"

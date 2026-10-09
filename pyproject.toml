@@ -1,6 +1,6 @@
 [project]
 name = "e-applauncher"
-version = "0.2.0"
+version = "1.0.0"
 description = "E-AppLauncher - AppImage launcher for Linux"
 readme = "README.md"
 requires-python = ">=3.12"
