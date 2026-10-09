@@ -1,0 +1,118 @@
+name: release-binaries
+
+# Builds standalone Linux binaries (PyInstaller, onefile) and attaches them
+# to a GitHub Release. Triggered by version tags (v0.2.0) or manually.
+#
+# Artifacts per architecture:
+#   e-applauncher-<version>-linux-<arch>.tar.gz  (contains ./e-applauncher)
+#   e-applauncher-<version>-linux-<arch>.tar.gz.sha256
+
+on:
+  push:
+    tags:
+      - "v*"
+  workflow_dispatch:
+    inputs:
+      version:
+        description: "Version to build (e.g. 0.2.0). Defaults to pyproject.toml."
+        required: false
+        default: ""
+
+permissions:
+  contents: write
+
+jobs:
+  build:
+    name: build (${{ matrix.arch }})
+    strategy:
+      fail-fast: false
+      matrix:
+        include:
+          - runner: ubuntu-22.04
+            arch: x86_64
+          - runner: ubuntu-24.04-arm
+            arch: aarch64
+    runs-on: ${{ matrix.runner }}
+    steps:
+      - name: Check out
+        uses: actions/checkout@v4
+
+      - name: Set up Python
+        uses: actions/setup-python@v5
+        with:
+          python-version: "3.12"
+
+      - name: Set up uv
+        uses: astral-sh/setup-uv@v4
+
+      - name: Sync dependencies
+        # Needed so PyInstaller analyzes against the real dependency set.
+        run: uv sync
+
+      - name: Resolve version
+        id: version
+        run: |
+          if [ -n "${{ inputs.version }}" ]; then
+            ver="${{ inputs.version }}"
+          elif [[ "${GITHUB_REF}" == refs/tags/v* ]]; then
+            ver="${GITHUB_REF_NAME#v}"
+          else
+            ver="$(uv run python -c 'import tomllib; print(tomllib.load(open("pyproject.toml","rb"))["project"]["version"])')"
+          fi
+          ver="${ver#v}"
+          if ! [[ "$ver" =~ ^[0-9]+\.[0-9]+\.[0-9]+ ]]; then
+            echo "Invalid version: $ver" >&2
+            exit 1
+          fi
+          echo "version=$ver" >> "$GITHUB_OUTPUT"
+          echo "Building version: $ver"
+
+      - name: Build binary
+        run: uv run --with pyinstaller pyinstaller --noconfirm --clean e-applauncher.spec
+
+      - name: Smoke test binary
+        run: |
+          ./dist/e-applauncher --version
+          ./dist/e-applauncher --help > /dev/null
+          mkdir -p /tmp/smoke-apps
+          printf '#!/bin/sh\necho hi\n' > /tmp/smoke-apps/Smoke.AppImage
+          chmod +x /tmp/smoke-apps/Smoke.AppImage
+          XDG_DATA_HOME=/tmp/smoke-data ./dist/e-applauncher --dir /tmp/smoke-apps --list
+
+      - name: Package + checksum
+        run: |
+          ver="${{ steps.version.outputs.version }}"
+          asset="e-applauncher-${ver}-linux-${{ matrix.arch }}"
+          mkdir -p release
+          tar -czf "release/${asset}.tar.gz" -C dist e-applauncher
+          (cd release && sha256sum "${asset}.tar.gz" > "${asset}.tar.gz.sha256")
+          cat "release/${asset}.tar.gz.sha256"
+
+      - name: Upload artifact
+        uses: actions/upload-artifact@v4
+        with:
+          name: binary-linux-${{ matrix.arch }}
+          path: release/
+          if-no-files-found: error
+
+  release:
+    name: publish release
+    needs: build
+    runs-on: ubuntu-latest
+    steps:
+      - name: Download artifacts
+        uses: actions/download-artifact@v4
+        with:
+          pattern: binary-linux-*
+          merge-multiple: true
+          path: release/
+
+      - name: List assets
+        run: ls -la release/ && sha256sum -c release/*.sha256
+
+      - name: Publish GitHub Release
+        uses: softprops/action-gh-release@v2
+        with:
+          files: release/*
+          generate_release_notes: true
+          fail_on_unmatched_files: true

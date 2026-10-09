@@ -1,0 +1,68 @@
+[project]
+name = "e-applauncher"
+version = "0.2.0"
+description = "E-AppLauncher - AppImage launcher for Linux"
+readme = "README.md"
+requires-python = ">=3.12"
+authors = [
+    {name = "AegisTrail", email = "aegistrail@github"},
+]
+maintainers = [
+    {name = "AegisTrail", email = "aegistrail@github"},
+]
+license = {text = "MIT"}
+keywords = ["appimage", "launcher", "tui", "textual", "linux"]
+classifiers = [
+    "Development Status :: 4 - Beta",
+    "Environment :: Console",
+    "Intended Audience :: End Users/Desktop",
+    "License :: OSI Approved :: MIT License",
+    "Programming Language :: Python :: 3",
+    "Topic :: Utilities",
+]
+dependencies = [
+    "rich>=14.0.0",
+    "textual>=0.80.0",
+]
+
+[project.optional-dependencies]
+watch = ["watchdog>=4.0.0"]
+dev = ["pytest>=8.0.0", "pytest-cov>=5.0.0", "ruff>=0.8.0"]
+
+[project.scripts]
+e-applauncher = "e_app_launcher.app:main"
+
+[build-system]
+requires = ["hatchling"]
+build-backend = "hatchling.build"
+
+[tool.hatch.build.targets.wheel]
+packages = ["e_app_launcher"]
+
+[tool.hatch.build.targets.sdist]
+include = [
+    "/README.md",
+    "/main.py",
+    "/pyproject.toml",
+    "/e_app_launcher",
+]
+
+[tool.pytest.ini_options]
+testpaths = ["tests"]
+pythonpath = ["."]
+addopts = "-v --tb=short"
+
+[tool.ruff]
+line-length = 120
+target-version = "py312"
+
+[tool.ruff.lint]
+select = ["E", "F", "W", "I", "UP", "B", "C4", "SIM"]
+ignore = ["E501", "SIM102", "SIM105", "SIM108", "F841", "SIM103", "F401"]
+
+[tool.ruff.format]
+line-ending = "lf"
+
+[tool.coverage.run]
+source = ["e_app_launcher"]
+omit = ["*/tests/*"]
